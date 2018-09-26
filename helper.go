@@ -29,6 +29,7 @@ func (fn fileSystemFunc) Open(name string) (http.File, error) { return fn(name) 
 
 func Prefix(prefix string, fileSystem http.FileSystem) http.FileSystem {
 	return fileSystemFunc(func(name string) (http.File, error) {
-		return fileSystem.Open(strings.TrimRight(prefix, "/") + "/" + strings.TrimLeft(name, "/"))
+		return fileSystem.Open(strings.TrimRight(
+			strings.TrimRight(prefix, "/")+"/"+strings.TrimLeft(name, "/"), "/"))
 	})
 }
