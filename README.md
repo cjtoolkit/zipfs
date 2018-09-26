@@ -1,0 +1,1 @@
+# ZipFS for net/http
