@@ -11,12 +11,12 @@ import (
 func InitZipFs(zipFileName string) http.FileSystem {
 	f, err := os.Open(zipFileName)
 	if err != nil {
-		initZipFsFromEmbed()
+		return initZipFsFromEmbed()
 	}
 	fi, err := f.Stat()
 	if err != nil {
 		f.Close()
-		initZipFsFromEmbed()
+		return initZipFsFromEmbed()
 	}
 
 	z, err := zip.NewReader(f, fi.Size())
