@@ -9,23 +9,25 @@ import (
 )
 
 func InitZipFs(zipFileName string) http.FileSystem {
-	{
-		f, err := os.Open(zipFileName)
-		if err != nil {
-			log.Panic(err)
-		}
-		fi, err := f.Stat()
-		if err != nil {
-			f.Close()
-			log.Panic(err)
-		}
-
-		z, err := zip.NewReader(f, fi.Size())
-		if err == nil {
-			return NewZipFSWithReadAt(z, f)
-		}
+	f, err := os.Open(zipFileName)
+	if err != nil {
+		initZipFsFromEmbed()
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		initZipFsFromEmbed()
 	}
 
+	z, err := zip.NewReader(f, fi.Size())
+	if err == nil {
+		return NewZipFSWithReadAt(z, f)
+	}
+
+	return initZipFsFromEmbed()
+}
+
+func initZipFsFromEmbed() http.FileSystem {
 	z, r, err := GetEmbeddedZip()
 	if err != nil {
 		log.Panic(err)
