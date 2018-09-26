@@ -22,15 +22,15 @@ func binself() (*os.File, error) {
 	return bin, err
 }
 
-func GetEmbeddedZip() (*zip.Reader, error) {
+func GetEmbeddedZip() (*zip.Reader, io.ReaderAt, error) {
 	bin, err := binself()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	fi, err := bin.Stat()
 	if err != nil {
 		bin.Close()
-		return nil, err
+		return nil, nil, err
 	}
 
 	n := int64(65 * 1024)
@@ -42,12 +42,12 @@ func GetEmbeddedZip() (*zip.Reader, error) {
 	_, err = io.ReadAtLeast(io.NewSectionReader(bin, size-n, n), buf, len(buf))
 	if err != nil {
 		bin.Close()
-		return nil, err
+		return nil, nil, err
 	}
 	o := int64(findSignatureInBlock(buf))
 	if o < 0 {
 		bin.Close()
-		return nil, errors.New("could not locate zip file, no end-of-central-directory signature found")
+		return nil, nil, errors.New("could not locate zip file, no end-of-central-directory signature found")
 	}
 	cdirsize := int64(binary.LittleEndian.Uint32(buf[o+12:]))
 	cdiroff := int64(binary.LittleEndian.Uint32(buf[o+16:]))
@@ -57,8 +57,8 @@ func GetEmbeddedZip() (*zip.Reader, error) {
 	r, err := zip.NewReader(rr, zipsize)
 	if err != nil {
 		bin.Close()
-		return nil, err
+		return nil, nil, err
 	}
 
-	return r, err
+	return r, rr, err
 }

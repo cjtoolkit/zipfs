@@ -4,23 +4,34 @@ import (
 	"archive/zip"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
 func InitZipFs(zipFileName string) http.FileSystem {
 	{
-		z, err := zip.OpenReader(zipFileName)
+		f, err := os.Open(zipFileName)
+		if err != nil {
+			log.Panic(err)
+		}
+		fi, err := f.Stat()
+		if err != nil {
+			f.Close()
+			log.Panic(err)
+		}
+
+		z, err := zip.NewReader(f, fi.Size())
 		if err == nil {
-			return NewZipFS(&z.Reader)
+			return NewZipFSWithReadAt(z, f)
 		}
 	}
 
-	z, err := GetEmbeddedZip()
+	z, r, err := GetEmbeddedZip()
 	if err != nil {
 		log.Panic(err)
 	}
 
-	return NewZipFS(z)
+	return NewZipFSWithReadAt(z, r)
 }
 
 type fileSystemFunc func(name string) (http.File, error)

@@ -2,16 +2,17 @@ package zipfs
 
 import (
 	"archive/zip"
-	"bytes"
+	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 )
 
-func NewZipFS(z *zip.Reader) http.FileSystem {
+func NewZipFS(z *zip.Reader) http.FileSystem { return NewZipFSWithReadAt(z, nil) }
+
+func NewZipFSWithReadAt(z *zip.Reader, r io.ReaderAt) http.FileSystem {
 	t := newTrie()
 	rootDir := &zipRoot{
 		zipDir: zipDir{},
@@ -42,12 +43,14 @@ func NewZipFS(z *zip.Reader) http.FileSystem {
 
 	return &zipFS{
 		zip:  z,
+		r:    r,
 		trie: t,
 	}
 }
 
 type zipFS struct {
 	zip  *zip.Reader
+	r    io.ReaderAt
 	trie *trie
 }
 
@@ -59,19 +62,7 @@ func (fs *zipFS) Open(name string) (http.File, error) {
 
 	switch entry := node.meta.(type) {
 	case *zip.File:
-		f, err := entry.Open()
-		if err != nil {
-			return nil, err
-		}
-		rawData, err := ioutil.ReadAll(f)
-		if err != nil {
-			return nil, err
-		}
-		f.Close()
-		return &zipFile{
-			Info: entry.FileHeader,
-			Data: bytes.NewReader(rawData),
-		}, nil
+		return fs.processZipFile(entry)
 	case zipDir:
 		return &entry, nil
 	case zipRoot:
@@ -81,16 +72,51 @@ func (fs *zipFS) Open(name string) (http.File, error) {
 	return nil, os.ErrNotExist
 }
 
-type zipFile struct {
-	Info zip.FileHeader
-	Data io.ReadSeeker
+func (fs *zipFS) processZipFile(entry *zip.File) (http.File, error) {
+	if fs.r != nil && entry.Method == zip.Store {
+		offset, err := entry.DataOffset()
+		if err != nil {
+			return nil, err
+		}
+		return &uncompressedFile{
+			io.NewSectionReader(fs.r, offset, int64(entry.UncompressedSize64)),
+			entry}, nil
+	}
+	ff, err := entry.Open()
+	if err != nil {
+		return nil, err
+	}
+	return &compressedFile{ff, entry}, nil
 }
 
-func (f *zipFile) Close() error                              { return nil }
-func (f *zipFile) Stat() (os.FileInfo, error)                { return f.Info.FileInfo(), nil }
-func (f *zipFile) Readdir(count int) ([]os.FileInfo, error)  { return nil, os.ErrInvalid }
-func (f *zipFile) Read(s []byte) (int, error)                { return f.Data.Read(s) }
-func (f *zipFile) Seek(off int64, whence int) (int64, error) { return f.Data.Seek(off, whence) }
+type uncompressedFile struct {
+	*io.SectionReader
+	zipFile *zip.File
+}
+
+func (f *uncompressedFile) Close() error               { return nil }
+func (f *uncompressedFile) Stat() (os.FileInfo, error) { return f.zipFile.FileInfo(), nil }
+
+func (f *uncompressedFile) Readdir(count int) ([]os.FileInfo, error) {
+	return nil, errors.New("not a directory")
+}
+
+type compressedFile struct {
+	io.ReadCloser
+	zipFile *zip.File
+}
+
+func (f *compressedFile) Seek(offset int64, whence int) (int64, error) {
+	return -1, errors.New("seek on compressed file")
+}
+
+func (f *compressedFile) Readdir(count int) ([]os.FileInfo, error) {
+	return nil, errors.New("not a directory")
+}
+
+func (f *compressedFile) Stat() (os.FileInfo, error) {
+	return f.zipFile.FileInfo(), nil
+}
 
 type zipDir struct {
 	Info  zip.FileHeader
