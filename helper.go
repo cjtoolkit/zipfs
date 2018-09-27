@@ -9,7 +9,7 @@ import (
 )
 
 // Initialise ZipFS based on give zip file name.
-// If the file does not exist, it will try to get the zip file that is embedded in the application it self.
+// If the file does not exist, it will try to get the zip file that is embedded in the application itself.
 // If the application also does not have zip embedded it will panic.
 func InitZipFs(zipFileName string) http.FileSystem {
 	f, err := os.Open(zipFileName)
@@ -24,7 +24,7 @@ func InitZipFs(zipFileName string) http.FileSystem {
 
 	z, err := zip.NewReader(f, fi.Size())
 	if err == nil {
-		return NewZipFSWithReadAt(z, f)
+		return NewZipFSWithReaderAt(z, f)
 	}
 
 	return initZipFsFromEmbed()
@@ -36,16 +36,17 @@ func initZipFsFromEmbed() http.FileSystem {
 		log.Panic(err)
 	}
 
-	return NewZipFSWithReadAt(z, r)
+	return NewZipFSWithReaderAt(z, r)
 }
 
 type fileSystemFunc func(name string) (http.File, error)
 
 func (fn fileSystemFunc) Open(name string) (http.File, error) { return fn(name) }
 
+// Add prefix to name
 func Prefix(prefix string, fileSystem http.FileSystem) http.FileSystem {
+	prefix = strings.TrimRight(prefix, "/")
 	return fileSystemFunc(func(name string) (http.File, error) {
-		return fileSystem.Open(strings.TrimRight(
-			strings.TrimRight(prefix, "/")+"/"+strings.TrimLeft(name, "/"), "/"))
+		return fileSystem.Open(strings.TrimRight(prefix+"/"+strings.TrimLeft(name, "/"), "/"))
 	})
 }

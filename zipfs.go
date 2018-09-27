@@ -11,11 +11,11 @@ import (
 )
 
 // Create Zip File System, just from the zip reader, with seek disabled.
-func NewZipFS(z *zip.Reader) http.FileSystem { return NewZipFSWithReadAt(z, nil) }
+func NewZipFS(z *zip.Reader) http.FileSystem { return NewZipFSWithReaderAt(z, nil) }
 
 // Create Zip File System, from the zip reader and readerAt.
 // If readerAt is nil, than seeking will be disabled.
-func NewZipFSWithReadAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
+func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 	t := newTrie()
 	rootDir := &zipRoot{
 		zipDir: zipDir{},
