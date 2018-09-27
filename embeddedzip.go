@@ -22,6 +22,7 @@ func binself() (*os.File, error) {
 	return bin, err
 }
 
+// Tries to get the zip archive, that is embedded inside the running application.
 func GetEmbeddedZip() (*zip.Reader, io.ReaderAt, error) {
 	bin, err := binself()
 	if err != nil {
