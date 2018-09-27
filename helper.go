@@ -2,6 +2,7 @@ package zipfs
 
 import (
 	"archive/zip"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -39,6 +40,25 @@ func initEmbeddedZipFs() http.FileSystem {
 	return NewZipFSWithReaderAt(z, r)
 }
 
+// Init Zip FS from HTTP File, must be uncompressed. Does not support compressed files!
+func InitZipFsFromHttpFile(f http.File) http.FileSystem {
+	r, ok := f.(io.ReaderAt)
+	if !ok {
+		log.Panic("Does not implemented io.ReaderAt, must use uncompressed file. Does not support compressed files!")
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	z, err := zip.NewReader(r, fi.Size())
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return NewZipFSWithReaderAt(z, r)
+}
+
 type fileSystemFunc func(name string) (http.File, error)
 
 func (fn fileSystemFunc) Open(name string) (http.File, error) { return fn(name) }
@@ -49,4 +69,12 @@ func Prefix(prefix string, fileSystem http.FileSystem) http.FileSystem {
 	return fileSystemFunc(func(name string) (http.File, error) {
 		return fileSystem.Open(strings.TrimRight(prefix+"/"+strings.TrimLeft(name, "/"), "/"))
 	})
+}
+
+// Must not have any error, in HTTP File.
+func Must(f http.File, err error) http.File {
+	if err != nil {
+		log.Panic(err)
+	}
+	return f
 }
