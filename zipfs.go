@@ -12,7 +12,7 @@ import (
 
 func NewZipFS(z *zip.Reader) http.FileSystem { return NewZipFSWithReadAt(z, nil) }
 
-func NewZipFSWithReadAt(z *zip.Reader, r io.ReaderAt) http.FileSystem {
+func NewZipFSWithReadAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 	t := newTrie()
 	rootDir := &zipRoot{
 		zipDir: zipDir{},
@@ -42,19 +42,22 @@ func NewZipFSWithReadAt(z *zip.Reader, r io.ReaderAt) http.FileSystem {
 	t.Add("/", *rootDir)
 
 	return &zipFS{
-		zip:  z,
-		r:    r,
-		trie: t,
+		zip:      z,
+		readerAt: readerAt,
+		trie:     t,
 	}
 }
 
 type zipFS struct {
-	zip  *zip.Reader
-	r    io.ReaderAt
-	trie *trie
+	zip      *zip.Reader
+	readerAt io.ReaderAt
+	trie     *trie
 }
 
 func (fs *zipFS) Open(name string) (http.File, error) {
+	if !strings.HasPrefix(name, "/") {
+		return nil, os.ErrNotExist
+	}
 	node, found := fs.trie.Find(name)
 	if !found {
 		return nil, os.ErrNotExist
@@ -73,20 +76,24 @@ func (fs *zipFS) Open(name string) (http.File, error) {
 }
 
 func (fs *zipFS) processZipFile(entry *zip.File) (http.File, error) {
-	if fs.r != nil && entry.Method == zip.Store {
+	if fs.readerAt != nil && entry.Method == zip.Store {
 		offset, err := entry.DataOffset()
 		if err != nil {
 			return nil, err
 		}
 		return &uncompressedFile{
-			io.NewSectionReader(fs.r, offset, int64(entry.UncompressedSize64)),
-			entry}, nil
+			SectionReader: io.NewSectionReader(fs.readerAt, offset, int64(entry.UncompressedSize64)),
+			zipFile:       entry,
+		}, nil
 	}
 	ff, err := entry.Open()
 	if err != nil {
 		return nil, err
 	}
-	return &compressedFile{ff, entry}, nil
+	return &compressedFile{
+		ReadCloser: ff,
+		zipFile:    entry,
+	}, nil
 }
 
 type uncompressedFile struct {
