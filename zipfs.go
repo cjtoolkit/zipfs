@@ -34,7 +34,6 @@ func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 			rootDir.Files = append(rootDir.Files, &clone)
 		}
 	}
-	trie.Add("/", *rootDir)
 	for _, entry := range dirs {
 		// fake directory.
 		dir := &zipDir{Info: entry.FileHeader}
@@ -52,6 +51,7 @@ func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 
 		trie.Add(name, *dir)
 	}
+	trie.Add("/", *rootDir)
 
 	return &zipFS{
 		zip:      z,
