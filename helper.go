@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Initialise ZipFS based on give zip file name.
+// Initialise ZipFS based on given zip file name.
 // If the file does not exist, it will try to get the zip file that is embedded in the application itself.
 // If the application also does not have zip embedded it will panic.
 func InitZipFs(zipFileName string) http.FileSystem {
