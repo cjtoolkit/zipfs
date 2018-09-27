@@ -16,7 +16,7 @@ func NewZipFS(z *zip.Reader) http.FileSystem { return NewZipFSWithReaderAt(z, ni
 // Create Zip File System, from the zip reader and readerAt.
 // If readerAt is nil, than seeking will be disabled.
 func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
-	t := newTrie()
+	trie := newTrie()
 	rootDir := &zipRoot{
 		zipDir: zipDir{},
 		Info:   zipRootInfo{time.Now()},
@@ -26,22 +26,22 @@ func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 		if entry.Mode().IsDir() {
 			dirs = append(dirs, entry)
 		} else {
-			t.Add("/"+entry.Name, entry)
+			trie.Add("/"+entry.Name, entry)
 		}
 		if len(strings.Split(strings.TrimRight(entry.Name, "/"), "/")) == 1 {
 			clone := *entry
 			rootDir.Files = append(rootDir.Files, &clone)
 		}
 	}
-	t.Add("/", *rootDir)
+	trie.Add("/", *rootDir)
 	for _, entry := range dirs {
 		// fake directory.
 		dir := &zipDir{Info: entry.FileHeader}
-		name := strings.TrimRight(entry.Name, "/")
-		for _, dirContent := range t.PrefixSearch("/" + name) {
+		name := "/" + strings.TrimRight(entry.Name, "/")
+		for _, dirContent := range trie.PrefixSearch(name) {
 			if strings.HasPrefix(dirContent, "/"+entry.Name) &&
 				len(strings.Split(strings.TrimRight(strings.TrimPrefix(dirContent, "/"+entry.Name), "/"), "/")) == 1 {
-				node, _ := t.Find(dirContent)
+				node, _ := trie.Find(dirContent)
 				subentry := node.meta.(*zip.File)
 				clone := *subentry
 				clone.Name = subentry.Name[len(entry.Name):]
@@ -49,13 +49,13 @@ func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 			}
 		}
 
-		t.Add("/"+name, *dir)
+		trie.Add(name, *dir)
 	}
 
 	return &zipFS{
 		zip:      z,
 		readerAt: readerAt,
-		trie:     t,
+		trie:     trie,
 	}
 }
 
