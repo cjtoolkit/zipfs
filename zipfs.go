@@ -25,6 +25,7 @@ func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 	for _, entry := range z.File {
 		if entry.Mode().IsDir() {
 			dirs = append(dirs, entry)
+			trie.Add("/"+strings.TrimRight(entry.Name, "/"), entry)
 		} else {
 			trie.Add("/"+entry.Name, entry)
 		}
