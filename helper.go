@@ -14,12 +14,12 @@ import (
 func InitZipFs(zipFileName string) http.FileSystem {
 	f, err := os.Open(zipFileName)
 	if err != nil {
-		return initZipFsFromEmbed()
+		return initEmbeddedZipFs()
 	}
 	fi, err := f.Stat()
 	if err != nil {
 		f.Close()
-		return initZipFsFromEmbed()
+		return initEmbeddedZipFs()
 	}
 
 	z, err := zip.NewReader(f, fi.Size())
@@ -27,10 +27,10 @@ func InitZipFs(zipFileName string) http.FileSystem {
 		return NewZipFSWithReaderAt(z, f)
 	}
 
-	return initZipFsFromEmbed()
+	return initEmbeddedZipFs()
 }
 
-func initZipFsFromEmbed() http.FileSystem {
+func initEmbeddedZipFs() http.FileSystem {
 	z, r, err := GetEmbeddedZip()
 	if err != nil {
 		log.Panic(err)
