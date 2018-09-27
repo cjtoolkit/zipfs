@@ -39,14 +39,15 @@ func NewZipFSWithReaderAt(z *zip.Reader, readerAt io.ReaderAt) http.FileSystem {
 		dir := &zipDir{Info: entry.FileHeader}
 		name := "/" + strings.TrimRight(entry.Name, "/")
 		for _, dirContent := range trie.PrefixSearch(name) {
-			if strings.HasPrefix(dirContent, "/"+entry.Name) &&
-				len(strings.Split(strings.TrimRight(strings.TrimPrefix(dirContent, "/"+entry.Name), "/"), "/")) == 1 {
-				node, _ := trie.Find(dirContent)
-				subentry := node.meta.(*zip.File)
-				clone := *subentry
-				clone.Name = subentry.Name[len(entry.Name):]
-				dir.Files = append(dir.Files, &clone)
+			if !strings.HasPrefix(dirContent, "/"+entry.Name) ||
+				len(strings.Split(strings.TrimRight(strings.TrimPrefix(dirContent, "/"+entry.Name), "/"), "/")) > 1 {
+				continue
 			}
+			node, _ := trie.Find(dirContent)
+			subentry := node.meta.(*zip.File)
+			clone := *subentry
+			clone.Name = subentry.Name[len(entry.Name):]
+			dir.Files = append(dir.Files, &clone)
 		}
 
 		trie.Add(name, *dir)
