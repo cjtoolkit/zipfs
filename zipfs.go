@@ -23,7 +23,7 @@ Example:
 	}
 
 To embed zip to the application, first create a zip file with your preferred achiever with compression disabled.
-Than append to the content of the zip to the compiled application.  You can use this simple shell command to append.
+Than append the content of the zip to the compiled application.  You can use this simple shell command to append.
 
 	$ cat asset.zip >> application
 
